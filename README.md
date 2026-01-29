@@ -1,3 +1,34 @@
+# Projet Prédisinistre — Étape 1 (EDA) | Contribution Alex
+
+⚠️ Ce README décrit le travail réalisé dans la branche **alex_eda**.
+Il ne constitue pas encore la version consolidée du projet.
+
+## Objectif de l’Étape 1
+Réaliser une analyse exploratoire des données (EDA) afin de comprendre la structure du jeu de données,
+évaluer sa qualité, identifier les variables pertinentes pour la prédiction de la fraude pré-sinistre
+et poser des constats étayés par des visualisations et des validations statistiques.
+
+## Contenu réalisé dans cette branche
+- Audit de la qualité des données (valeurs manquantes, incohérences, distributions)
+- Analyse de la structure et de la volumétrie
+- Sélection a priori des variables pertinentes pour la fraude
+- Réalisation de 5 visualisations exploratoires clés
+- Interprétations métier des résultats
+- Validation statistique des principaux constats
+
+## Périmètre volontairement exclu
+- Aucun preprocessing avancé
+- Aucun feature engineering
+- Aucun modèle de machine learning
+- Aucun résultat de prédiction
+
+## Fichiers concernés
+- notebooks/01_EDA.ipynb
+- reports/rapport_exploration_donnees
+- Template_Rapport_exploration_rempli.xlsx
+
+---
+
 Project Name
 ==============================
 
