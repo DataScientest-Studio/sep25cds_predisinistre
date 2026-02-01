@@ -1,4 +1,9 @@
-Project Name
+# Prédiction de Sinisre
+
+L'objectif de ce projet est d'analyser l'ensemble des données de réclamations d'assurance afin de développer un modèle prédictif capable de détecter les réclamations potentiellement frauduleuses
+
+Dans l'identification des indicateurs clés associés à la fraude, ce modèle vise à aider les compagnies d'assurance à réduire les pertes financières et à améliorer l'efficacité de leurs processus de validation des réclamations
+
 ==============================
 
 This repo is a Starting Pack for DS projects. You can rearrange the structure to make it fits your project.
