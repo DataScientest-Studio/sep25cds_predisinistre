@@ -1,0 +1,24 @@
+[project]
+name = "predi-sinistre"
+version = "0.1.0"
+description = "Modèle prédictif pour détection de réclamations d'assurance potentiellement frauduleuses ou non"
+authors = [
+    {name = "Christ Peryclais",email = "christ.peryclais@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy (>=2.4.2,<3.0.0)",
+    "pandas (>=3.0.0,<4.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "plotly (>=6.5.2,<7.0.0)",
+    "scikit-learn (>=1.8.0,<2.0.0)",
+    "nbformat (>=5.10.4,<6.0.0)",
+    "wordcloud (>=1.9.6,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
