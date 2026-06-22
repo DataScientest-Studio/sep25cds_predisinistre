@@ -25,7 +25,7 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 import shap
 import joblib, json, os, warnings
-from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_score, roc_curve
+from sklearn.metrics import confusion_matrix, roc_auc_score, f1_score, recall_score, precision_score, roc_curve
  
 warnings.filterwarnings('ignore')
  
@@ -195,15 +195,22 @@ def load_artifacts():
     """
     # à vérifier
     required = ['best_pipeline_xgb.pkl', 'best_pipeline_hgb.pkl', 'best_pipeline_gb.pkl', 
-                'cat_modalities.pkl','model_metadata.json', 'num_stats.json']
+                'cat_modalities.pkl','model_metadata.json', 'num_stats.json', "X_train.csv",
+                'y_test.pkl', 'y_prob_xgb.pkl', 'y_prob_hgb.pkl', 'y_prob_gb.pkl']
  
     if all(os.path.exists(f) for f in required):
         pipeline       = joblib.load('best_pipeline_xgb.pkl') # modèle champion (XGBoost)
         cat_modalities = joblib.load('cat_modalities.pkl')
+        y_test = joblib.load('y_test.pkl')
+        y_prob_xgb = joblib.load('y_prob_xgb.pkl')
+        y_prob_hgb = joblib.load('y_prob_hgb.pkl')
+        y_prob_gb = joblib.load('y_prob_gb.pkl')
         with open('model_metadata.json') as f: metadata  = json.load(f)
         with open('num_stats.json')      as f: num_stats = json.load(f)
+        X_train = pd.read_csv('X_train.csv')
         return {'pipeline': pipeline, 'cat_modalities': cat_modalities,
-                'metadata': metadata, 'num_stats': num_stats}
+                'metadata': metadata, 'num_stats': num_stats, 'X_train': X_train,
+                'y_test': y_test, 'y_prob_xgb': y_prob_xgb, 'y_prob_hgb': y_prob_hgb, 'y_prob_gb': y_prob_gb}
     else:
         return _train_demo_pipeline()
  
@@ -329,8 +336,7 @@ def plot_local_explanation(pipeline, X_instance_df, X_ref_df, n_top=10):
                       else X_ref_df[col].median()
         contributions.append(base_prob - pipeline.predict_proba(X_pert)[0, 1])
     contrib_df = pd.DataFrame({'feature':X_instance_df.columns,'contribution':contributions})\
-                   .sort_values('contribution', key=abs, ascending=False).head(n_top)\
-                   .sort_values('contribution')
+                   .sort_values('contribution', key=abs, ascending=False).head(n_top).sort_values('contribution')
     fig, ax = plt.subplots(figsize=(8, 5))
     fig.patch.set_facecolor('#1a2a3a'); ax.set_facecolor('#1a2a3a')
     ax.barh(contrib_df['feature'], contrib_df['contribution'],
@@ -395,7 +401,68 @@ def plot_shap_waterfall(pipeline, X_input):
         return None
 # plot_global_importance intentionnellement supprimée
 # (causait une erreur d'affichage dans Streamlit)
- 
+
+def plot_confusion_thresholds(
+        y_true,
+        y_prob,
+        optimal_threshold,
+        model_name):
+
+    fig, axes = plt.subplots(
+        1, 2,
+        figsize=(14, 5)
+    )
+
+    thresholds = [
+        (0.50, "Seuil par défaut"),
+        (optimal_threshold, "Seuil optimisé")
+    ]
+
+    for ax, (thr, title) in zip(axes, thresholds):
+
+        y_pred = (y_prob >= thr).astype(int)
+
+        cm = confusion_matrix(
+            y_true,
+            y_pred
+        )
+
+        f1 = f1_score(y_true, y_pred)
+        rec = recall_score(y_true, y_pred)
+        prec = precision_score(
+            y_true,
+            y_pred
+        )
+
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt='d',
+            cmap='Blues',
+            ax=ax,
+            cbar=True
+        )
+
+        ax.set_title(
+            f"{title} ({thr:.2f})\n"
+            f"F1={f1:.3f} | "
+            f"Recall={rec:.3f} | "
+            f"Précision={prec:.3f}",
+            fontweight="bold"
+        )
+
+        ax.set_xlabel("Prédit")
+        ax.set_ylabel("Réel")
+
+    fig.suptitle(
+        f"Matrices de Confusion — {model_name}",
+        fontsize=16,
+        fontweight="bold"
+    )
+
+    plt.tight_layout()
+
+    return fig
  
 # =============================================================
 # APPLICATION PRINCIPALE
@@ -456,6 +523,17 @@ def main():
         )
 
         cfg = MODEL_REGISTRY[selected_model]
+        
+        if selected_model == "XGBoost":
+            y_prob = artifacts["y_prob_xgb"]
+
+        elif selected_model == "HistGradientBoosting":
+            y_prob = artifacts["y_prob_hgb"]
+
+        else:
+            y_prob = artifacts["y_prob_gb"]
+
+        y_test = artifacts["y_test"]
 
         pipeline = joblib.load(cfg["file"])
         opt_thresh = cfg["threshold"]
@@ -570,6 +648,10 @@ def main():
  
         if predict_btn:
             X_input    = build_input_row(input_data)
+            
+            st.session_state["last_prediction_input"] = X_input.copy()
+            
+            # Sauvegarde de la dernière observation
             fraud_prob = pipeline.predict_proba(X_input)[0, 1]
             is_fraud   = fraud_prob >= threshold
  
@@ -594,22 +676,8 @@ def main():
                 mc3.metric("Part corporelle",
                            f"{input_data['injury_claim']/max(input_data['total_claim_amount'],1):.0%}")
                 st.markdown("#### Facteurs explicatifs")
-                st.pyplot(plot_local_explanation(pipeline, X_input, X_input, n_top=10),
-                          use_container_width=True);
-                
-                # Explication SHAP -- Local
-                st.markdown("#### Explication SHAP")
-
-                fig_shap = plot_shap_waterfall(
-                    pipeline,
-                    X_input
-                )
-                if fig_shap:
-                        st.pyplot(
-                            fig_shap,
-                            use_container_width=True);
-                
-                plt.close()
+                st.pyplot(plot_local_explanation(pipeline, X_input, artifacts['X_train'], n_top=10),
+                          use_container_width=True); plt.close()
  
             st.divider()
             if fraud_prob >= 0.7:
@@ -627,34 +695,14 @@ def main():
     with tab2:
         st.markdown("## Performances et Interprétabilité du Modèle")
 
-        st.markdown("### Importance Globale des Variables (SHAP)")
-        def plot_global_shap(pipeline,X_reference):
-            """
-            Importance globale des features via SHAP.
-            Compatible avec XGBoost, HistGradientBoosting et GradientBoosting.
-            """
-            X_tr = pipeline["preprocessor"].transform(X_reference)
-            model = pipeline["classifier"]
-
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer(X_tr)
-
-            # Taille de la figure
-            fig = plt.figure(figsize=(10, 6))
-
-            shap.summary_plot(
-                shap_values,
-                X_tr,
-                show=False
-            )
-            return fig
         
-        if 'X_test' in artifacts:
-            fig_global = plot_global_shap(pipeline, artifacts["X_test"])
+        st.markdown("### Matrice de confusion")
 
-            st.pyplot(fig_global,use_container_width=True)
+        fig_cm = plot_confusion_thresholds(y_test, y_prob, cfg["threshold"], selected_model)
+        st.pyplot(fig_cm,use_container_width=True)
         
         st.markdown("### Métriques clés sur le Test Set")
+        
         m1, m2, m3, m4 = st.columns(4)
         for col, label, val, css_class, desc in [
             (m1, "ROC-AUC",          cfg['roc_auc'],   "metric-card-auc",      "Discrimination globale"),
@@ -674,6 +722,62 @@ def main():
  
         pc1, pc2 = st.columns(2)
  
+        
+        st.markdown("### Importance Globale des Variables (SHAP)")
+        def plot_global_shap(pipeline, X_reference):
+
+            X_tr = pipeline["preprocessor"].transform(X_reference)
+
+            feature_names = (
+                pipeline["preprocessor"]
+                .get_feature_names_out()
+            )
+
+            feature_names = [
+                c.replace("num__", "")
+                .replace("cat__", "")
+                for c in feature_names
+            ]
+
+            X_tr = pd.DataFrame(
+                X_tr,
+                columns=feature_names
+            )
+
+            model = pipeline["classifier"]
+
+            explainer = shap.Explainer(model)
+
+            shap_values = explainer(X_tr)
+
+            fig = plt.figure(figsize=(10, 6))
+
+            shap.summary_plot(
+                shap_values,
+                X_tr,
+                show=False,
+                max_display=20
+            )
+
+            return fig
+        
+        if 'X_train' in artifacts:
+
+            X_ref = artifacts["X_train"].sample(
+                min(200, len(artifacts["X_train"])),
+                random_state=42
+            )
+
+            fig_global = plot_global_shap(
+                pipeline,
+                X_ref
+            )
+
+            st.pyplot(
+                fig_global,
+                use_container_width=True
+            )
+            
         with pc1:
             st.markdown("### Configuration du Modèle")
             st.markdown(f"""
@@ -748,6 +852,33 @@ def main():
                 <div class="guide-card">
                     <b>{icon} {title}</b><br><br>{items_html}
                 </div>""", unsafe_allow_html=True)
+            
+            st.markdown("---")
+
+            st.markdown("### Explication SHAP d'une prédiction")
+
+            if "last_prediction_input" in st.session_state:
+
+                fig_shap = plot_shap_waterfall(
+                    pipeline,
+                    st.session_state["last_prediction_input"]
+                )
+
+                if fig_shap:
+                    st.pyplot(
+                        fig_shap,
+                        use_container_width=True
+                    )
+
+            else:
+
+                st.info(
+                    "Effectuez d'abord une prédiction dans l'onglet "
+                    "'Prédiction individuelle' pour visualiser "
+                    "l'explication SHAP."
+                )   
+                
+            
  
     # ===========================================================
     # ONGLET 3 — ANALYSE PAR LOTS (CSV)
