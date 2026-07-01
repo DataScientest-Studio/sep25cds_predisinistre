@@ -199,15 +199,15 @@ def load_artifacts():
                 'y_test.pkl', 'y_prob_xgb.pkl', 'y_prob_hgb.pkl', 'y_prob_gb.pkl']
  
     if all(os.path.exists(f) for f in required):
-        pipeline       = joblib.load('best_pipeline_xgb.pkl') # modèle champion (XGBoost)
-        cat_modalities = joblib.load('cat_modalities.pkl')
-        y_test = joblib.load('y_test.pkl')
-        y_prob_xgb = joblib.load('y_prob_xgb.pkl')
-        y_prob_hgb = joblib.load('y_prob_hgb.pkl')
-        y_prob_gb = joblib.load('y_prob_gb.pkl')
-        with open('model_metadata.json') as f: metadata  = json.load(f)
-        with open('num_stats.json')      as f: num_stats = json.load(f)
-        X_train = pd.read_csv('X_train.csv')
+        pipeline       = joblib.load('../models/best_pipeline_xgb.pkl') # modèle champion (XGBoost)
+        cat_modalities = joblib.load('../models/cat_modalities.pkl')
+        y_test = joblib.load('../models/y_test.pkl')
+        y_prob_xgb = joblib.load('../models/y_prob_xgb.pkl')
+        y_prob_hgb = joblib.load('../models/y_prob_hgb.pkl')
+        y_prob_gb = joblib.load('../models/y_prob_gb.pkl')
+        with open('../models/model_metadata.json') as f: metadata  = json.load(f)
+        with open('../models/num_stats.json')      as f: num_stats = json.load(f)
+        X_train = pd.read_csv('../models/X_train.csv')
         return {'pipeline': pipeline, 'cat_modalities': cat_modalities,
                 'metadata': metadata, 'num_stats': num_stats, 'X_train': X_train,
                 'y_test': y_test, 'y_prob_xgb': y_prob_xgb, 'y_prob_hgb': y_prob_hgb, 'y_prob_gb': y_prob_gb}
