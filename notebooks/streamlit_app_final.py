@@ -563,10 +563,11 @@ def main():
         st.info("Pipeline sklearn complet.\nDonnées brutes passées directement.")
  
     # Onglets 
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Prédiction individuelle",
         "Performances et Interpretabilite",
-        "Analyse par lots (CSV)"
+        "Analyse par lots (CSV)",
+        "Conclusion"
     ])
  
     # ===========================================================
@@ -1060,7 +1061,16 @@ def main():
                 "Astuce : si le fichier contient déjà la colonne `fraud_reported`, "
                 "le modèle sera automatiquement évalué sur ce lot (ROC-AUC, F1, Recall, Précision)."
             )
- 
+            
+    # ===========================================================
+    # ONGLET 4 — CONCLUSION
+    # ===========================================================
+    with tab4:
+        st.markdown("# Conclusion")
+        st.markdown("#####")
+        st.markdown(
+            "### Nous sommes à la fin de notre démo et nous vous remercions de votre attention !"
+            "\n\n ### Nous sommes maintenant à votre disposition pour répondre à vos questions.")
  
 if __name__ == "__main__":
     main()
