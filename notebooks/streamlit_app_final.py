@@ -567,7 +567,7 @@ def main():
         "Prédiction individuelle",
         "Performances et Interpretabilite",
         "Analyse par lots (CSV)",
-        "Conclusion"
+        "Fin démo"
     ])
  
     # ===========================================================
@@ -1066,10 +1066,9 @@ def main():
     # ONGLET 4 — CONCLUSION
     # ===========================================================
     with tab4:
-        st.markdown("# Conclusion")
-        st.markdown("#####")
         st.markdown(
-            "### Nous sommes à la fin de notre démo et nous vous remercions de votre attention !"
+            "### Merci !!!"
+            "\n\n ### Nous sommes à la fin de notre démo et nous vous remercions de votre attention !"
             "\n\n ### Nous sommes maintenant à votre disposition pour répondre à vos questions.")
  
 if __name__ == "__main__":
