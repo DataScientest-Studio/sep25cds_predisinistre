@@ -193,23 +193,40 @@ def load_artifacts():
     Charge le Pipeline sklearn et les métadonnées.
     Si les fichiers .pkl sont absents, entraîne un pipeline de démonstration.
     """
+    
+    MODELS_DIR = "../models" # chemin des fichiers du dossier models
+    DATA_PREPROCESSED_DIR = "../data/processed"
     # à vérifier
-    required = ['best_pipeline_xgb.pkl', 'best_pipeline_hgb.pkl', 'best_pipeline_gb.pkl', 
-                'cat_modalities.pkl','model_metadata.json', 'num_stats.json', "X_train.csv",
-                'y_test.pkl', 'y_prob_xgb.pkl', 'y_prob_hgb.pkl', 'y_prob_gb.pkl']
+    required = [
+        f"{MODELS_DIR}/best_pipeline_xgb.pkl",
+        f"{MODELS_DIR}/best_pipeline_hgb.pkl",
+        f"{MODELS_DIR}/best_pipeline_gb.pkl",
+        f"{MODELS_DIR}/cat_modalities.pkl",
+        f"{MODELS_DIR}/model_metadata.json",
+        f"{MODELS_DIR}/num_stats.json",
+        f"{DATA_PREPROCESSED_DIR}/X_train.csv",
+        f"{DATA_PREPROCESSED_DIR}/y_test.pkl",
+        f"{MODELS_DIR}/y_prob_xgb.pkl",
+        f"{MODELS_DIR}/y_prob_hgb.pkl",
+        f"{MODELS_DIR}/y_prob_gb.pkl",
+    ]
  
     if all(os.path.exists(f) for f in required):
-        pipeline       = joblib.load('../models/best_pipeline_xgb.pkl') # modèle champion (XGBoost)
-        cat_modalities = joblib.load('../models/cat_modalities.pkl')
-        y_test = joblib.load('../models/y_test.pkl')
-        y_prob_xgb = joblib.load('../models/y_prob_xgb.pkl')
-        y_prob_hgb = joblib.load('../models/y_prob_hgb.pkl')
-        y_prob_gb = joblib.load('../models/y_prob_gb.pkl')
-        with open('../models/model_metadata.json') as f: metadata  = json.load(f)
+        pipelines = {
+        "XGBoost": joblib.load(f"{MODELS_DIR}/best_pipeline_xgb.pkl"),
+        "HistGradientBoosting": joblib.load(f"{MODELS_DIR}/best_pipeline_hgb.pkl"),
+        "GradientBoosting": joblib.load(f"{MODELS_DIR}/best_pipeline_gb.pkl"),
+        }
+        cat_modalities = joblib.load(f"{MODELS_DIR}/cat_modalities.pkl")
+        y_test = joblib.load("../data/processed/y_test.pkl")
+        y_prob_xgb = joblib.load(f"{MODELS_DIR}/y_prob_xgb.pkl")
+        y_prob_hgb = joblib.load(f"{MODELS_DIR}/y_prob_hgb.pkl")
+        y_prob_gb = joblib.load(f"{MODELS_DIR}/y_prob_gb.pkl")
+        with open('../models/model_metadata.json') as f: model_metadata  = json.load(f)
         with open('../models/num_stats.json')      as f: num_stats = json.load(f)
-        X_train = pd.read_csv('../models/X_train.csv')
-        return {'pipeline': pipeline, 'cat_modalities': cat_modalities,
-                'metadata': metadata, 'num_stats': num_stats, 'X_train': X_train,
+        X_train = pd.read_csv('../data/processed/X_train.csv')
+        return {'pipeline': pipelines, 'cat_modalities': cat_modalities,
+                'model_metadata': model_metadata, 'num_stats': num_stats, 'X_train': X_train,
                 'y_test': y_test, 'y_prob_xgb': y_prob_xgb, 'y_prob_hgb': y_prob_hgb, 'y_prob_gb': y_prob_gb}
     else:
         return _train_demo_pipeline()
@@ -294,8 +311,17 @@ def _train_demo_pipeline():
         'train_size':len(y_train),'test_size':len(y_test),'fraud_rate_train':float(y_train.mean()),
         'num_cols':num_cols,'cat_cols':cat_cols
     }
-    return {'pipeline':pipeline,'cat_modalities':cat_modalities,'metadata':metadata,'num_stats':num_stats,
-            'X_test':X_test,'y_test':y_test,'y_prob':y_prob}
+    return {
+        "pipeline": {
+        "HistGradientBoosting": pipeline
+        },
+        "model_metadata": metadata,
+        "cat_modalities": cat_modalities,
+        "num_stats": num_stats,
+        "X_train": X_train,
+        "y_test": y_test,
+        "y_prob_hgb": y_prob,
+    }
  
  
 # =============================================================
@@ -481,11 +507,12 @@ def main():
         artifacts = load_artifacts()
  
     
-    metadata = artifacts['metadata']
+    metadata = artifacts['model_metadata']
+    pipelines = artifacts["pipeline"]
 
     MODEL_REGISTRY = {
     "XGBoost": {
-        "file": "best_pipeline_xgb.pkl",
+        "pipeline": pipelines["XGBoost"],
         "roc_auc": metadata["roc_auc_test_xgb"],
         "f1": metadata["f1_test_xgb"],
         "recall": metadata["recall_test_xgb"],
@@ -493,7 +520,7 @@ def main():
         "threshold": metadata["optimal_threshold_xgb"]
     },
     "HistGradientBoosting": {
-        "file": "best_pipeline_hgb.pkl",
+        "pipeline": pipelines["HistGradientBoosting"],
         "roc_auc": metadata["roc_auc_test_hgb"],
         "f1": metadata["f1_test_hgb"],
         "recall": metadata["recall_test_hgb"],
@@ -501,7 +528,7 @@ def main():
         "threshold": metadata["optimal_threshold_hgb"]
     },
     "GradientBoosting": {
-        "file": "best_pipeline_gb.pkl",
+        "pipeline": pipelines["GradientBoosting"],
         "roc_auc": metadata["roc_auc_test_gb"],
         "f1": metadata["f1_test_gb"],
         "recall": metadata["recall_test_gb"],
@@ -535,7 +562,8 @@ def main():
 
         y_test = artifacts["y_test"]
 
-        pipeline = joblib.load(cfg["file"])
+        ## pipeline = joblib.load(cfg["file"])
+        pipeline = cfg["pipeline"]
         opt_thresh = cfg["threshold"]
         st.markdown("### Seuil de Décision")
         threshold = st.slider(
@@ -810,24 +838,32 @@ def main():
             </div>
             """, unsafe_allow_html=True)
  
-            if 'y_test' in artifacts and 'y_prob' in artifacts:
-                st.markdown("### Courbe ROC")
-                fpr, tpr, _ = roc_curve(artifacts['y_test'], artifacts['y_prob'])
-                auc = roc_auc_score(artifacts['y_test'], artifacts['y_prob'])
-                fig_roc, ax = plt.subplots(figsize=(6, 4))
-                fig_roc.patch.set_facecolor('#1a2a3a'); ax.set_facecolor('#1a2a3a')
-                ax.plot(fpr, tpr, color='#3498db', lw=2.5, label=f'ROC (AUC={auc:.3f})')
-                ax.plot([0,1],[0,1],'w--', alpha=0.4, label='Aléatoire')
-                ax.fill_between(fpr, tpr, alpha=0.15, color='#3498db')
-                ax.set_xlabel('Taux Faux Positifs', color='white')
-                ax.set_ylabel('Recall', color='white')
-                ax.set_title('Courbe ROC — Test Set', fontweight='bold', color='white')
-                ax.tick_params(colors='white')
-                ax.legend(facecolor='#1a2a3a', labelcolor='white')
-                ax.grid(alpha=0.2, color='white')
-                for spine in ax.spines.values(): spine.set_edgecolor('#444')
-                plt.tight_layout()
-                st.pyplot(fig_roc, use_container_width=True); plt.close()
+            if selected_model == "XGBoost":
+                y_prob = artifacts["y_prob_xgb"]
+
+            elif selected_model == "HistGradientBoosting":
+                y_prob = artifacts["y_prob_hgb"]
+
+            else:
+                y_prob = artifacts["y_prob_gb"]
+                
+            st.markdown("### Courbe ROC")
+            fpr, tpr, _ = roc_curve(artifacts["y_test"], y_prob)
+            auc = roc_auc_score(artifacts["y_test"], y_prob)
+            fig_roc, ax = plt.subplots(figsize=(6, 4))
+            fig_roc.patch.set_facecolor('#1a2a3a'); ax.set_facecolor('#1a2a3a')
+            ax.plot(fpr, tpr, color='#3498db', lw=2.5, label=f'ROC (AUC={auc:.3f})')
+            ax.plot([0,1],[0,1],'w--', alpha=0.4, label='Aléatoire')
+            ax.fill_between(fpr, tpr, alpha=0.15, color='#3498db')
+            ax.set_xlabel('Taux Faux Positifs', color='white')
+            ax.set_ylabel('Recall', color='white')
+            ax.set_title('Courbe ROC — Test Set', fontweight='bold', color='white')
+            ax.tick_params(colors='white')
+            ax.legend(facecolor='#1a2a3a', labelcolor='white')
+            ax.grid(alpha=0.2, color='white')
+            for spine in ax.spines.values(): spine.set_edgecolor('#444')
+            plt.tight_layout()
+            st.pyplot(fig_roc, use_container_width=True); plt.close()
  
         with pc2:
             st.markdown("### Guide d'Interprétation")
